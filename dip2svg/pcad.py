@@ -28,7 +28,7 @@ def convert(doc, sheetnum=1):
     junctions = map(draw_junction, sheet.findall('junction'))
     ports = map(draw_port, sheet.findall('port'))
     return svg(width, height)(
-        g(transform='translate(0, {})'.format(height / 2))(
+        g(transform='translate(0, {})'.format(height / 2 + 100))(
             g(transform='scale({0}, {0})'.format(SCALE))(
                 g('schematic', stroke='black', fill='none',
                   transform='scale(1, -1)')(
@@ -80,6 +80,10 @@ def draw_arc(node):
     center, start, end = node.findall('pt')
     r = sqrt(abs(center[0] - end[0])**2 + abs(center[1] - end[1])**2)
     width = node.get('width')
+    if start == end:
+        # aka circle, jackasses
+        x, y = center
+        return circle(x, y, r, width)
     return path('M {},{} A {} {} 0 0 1 {},{}'.format(
         start[0], start[1], r, r, end[0], end[1]), width)
 
