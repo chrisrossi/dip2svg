@@ -8,7 +8,6 @@ from .utils import first
 
 DOT_R = 0.8
 JUNCTION_R = 0.6
-WIDTH = 0.25
 FONTSIZE = 2.2
 SCALE = 4
 
@@ -30,8 +29,18 @@ def convert(doc, sheetnum=1):
     ports = map(draw_port, sheet.findall('port'))
     return svg(width, height)(
         style(
-            ('svg', {'background-color': 'white'}),
-            ('text', {'font-size': '{}px'.format(FONTSIZE)}),
+            ('svg', {
+                'background-color': 'white',
+                'stroke': 'black',
+                'stroke-width': '0.25px',
+                'fill': 'none',
+            }),
+            ('text', {
+                'font-family': 'Sans-Serif',
+                'stroke': 'none',
+                'fill': 'black',
+                'font-size': '{}px'.format(FONTSIZE)}
+            ),
             ('text.center', {'text-anchor': 'middle'}),
             ('text.right', {'text-anchor': 'end'}),
             ('.component text', {'dominant-baseline': 'central'}),
@@ -41,6 +50,7 @@ def convert(doc, sheetnum=1):
             ('.port .horizontal', {'dominant-baseline': 'middle'}),
             ('.port .vertical', {'text-anchor': 'middle'}),
             ('.port .down', {'dominant-baseline': 'text-before-edge'}),
+            ('.junction', {'fill': 'black'}),
             *(('text.{}'.format(class_name(styledef[0])), {
                 'font-size': '{}px'.format(
                     styledef.find('font').get('fontHeight'))
@@ -48,8 +58,7 @@ def convert(doc, sheetnum=1):
         ),
         g(transform='translate(0, {})'.format(height / 2 + 100))(
             g(transform='scale({0}, {0})'.format(SCALE))(
-                g('schematic', stroke='black', fill='none',
-                  transform='scale(1, -1)')(
+                g('schematic', transform='scale(1, -1)')(
                     *chain(symbols, wires, junctions, ports)
                 )
             )
@@ -91,20 +100,18 @@ def draw_shape(library, symbol, shape):
 
 def draw_line(node):
     (x1, y1), (x2, y2) = node.findall('pt')
-    width = node.get('width')
-    return line(x1, y1, x2, y2, max(width, WIDTH))
+    return line(x1, y1, x2, y2)
 
 
 def draw_arc(node):
     center, start, end = node.findall('pt')
     r = sqrt(abs(center[0] - end[0])**2 + abs(center[1] - end[1])**2)
-    width = node.get('width')
     if start == end:
         # aka circle, jackasses
         x, y = center
-        return circle(x, y, r, width)
+        return circle(x, y, r)
     return path('M {},{} A {} {} 0 0 1 {},{}'.format(
-        start[0], start[1], r, r, end[0], end[1]), width)
+        start[0], start[1], r, r, end[0], end[1]))
 
 
 def draw_pin(node):
@@ -117,17 +124,17 @@ def draw_pin(node):
     if edge_style == 'DOT':
         # Draw a circle and then a line
         if rotation == 0:
-            dot = circle(x1 + DOT_R, y1, DOT_R, WIDTH)
-            pin = line(x1 + 2 * DOT_R, y1, x1 + l, y1, WIDTH)
+            dot = circle(x1 + DOT_R, y1, DOT_R)
+            pin = line(x1 + 2 * DOT_R, y1, x1 + l, y1)
         elif rotation == 90:
-            dot = circle(x1, y1 + DOT_R, DOT_R, WIDTH)
-            pin = line(x1, y1 + 2 * DOT_R, x1, y1 + l, WIDTH)
+            dot = circle(x1, y1 + DOT_R, DOT_R)
+            pin = line(x1, y1 + 2 * DOT_R, x1, y1 + l)
         elif rotation == 180:
-            dot = circle(x1 - DOT_R, y1, DOT_R, WIDTH)
-            pin = line(x1 - 2 * DOT_R, y1, x1 - l, y1, WIDTH)
+            dot = circle(x1 - DOT_R, y1, DOT_R)
+            pin = line(x1 - 2 * DOT_R, y1, x1 - l, y1)
         elif rotation == 270:
-            dot = circle(x1, y1 - DOT_R, DOT_R, WIDTH)
-            pin = line(x1, y1 - 2 * DOT_R, x1, y1 - l, WIDTH)
+            dot = circle(x1, y1 - DOT_R, DOT_R)
+            pin = line(x1, y1 - 2 * DOT_R, x1, y1 - l)
         container(dot, pin)
 
     else:
@@ -140,11 +147,11 @@ def draw_pin(node):
             x2, y2 = x1 - l, y1
         elif rotation == 270:
             x2, y2 = x1, y1 - l
-        container(line(x1, y1, x2, y2, WIDTH))
+        container(line(x1, y1, x2, y2))
 
     display = node.find('pinDisplay')
     if display and display.get('dispPinName'):
-        tx = WIDTH * 2
+        tx = 0.5
         tx = -tx if rotation == 0 else tx
         class_ = 'right' if rotation == 0 else None
         container(
@@ -255,7 +262,7 @@ def draw_wire(node):
 
 def draw_junction(node):
     x, y = node.find('pt')
-    return g(fill='black')(circle(x, y, JUNCTION_R, WIDTH))
+    return g(class_='junction')(circle(x, y, JUNCTION_R))
 
 
 def draw_port(node):
@@ -265,10 +272,10 @@ def draw_port(node):
     rotation = node.get('rotation', 0)
     if rotation == 0:
         return g(class_='port')(
-            line(x, y, x + l, y, WIDTH),
-            line(x + l, y, x + l - barb_l, y + barb_h, WIDTH),
-            line(x + l, y, x + l - barb_l, y - barb_h, WIDTH),
-            g(transform='translate({}, {})'.format(x + l + 2 * WIDTH, y))(
+            line(x, y, x + l, y),
+            line(x + l, y, x + l - barb_l, y + barb_h),
+            line(x + l, y, x + l - barb_l, y - barb_h),
+            g(transform='translate({}, {})'.format(x + l + 0.5, y))(
                 g(transform='scale(1, -1)')(
                     text(0, 0, class_='horizontal')(
                         node.get('netNameRef')
@@ -278,10 +285,10 @@ def draw_port(node):
         )
     elif rotation == 180:
         return g(class_='port')(
-            line(x, y, x - l, y, WIDTH),
-            line(x - l, y, x - l + barb_l, y + barb_h, WIDTH),
-            line(x - l, y, x - l + barb_l, y - barb_h, WIDTH),
-            g(transform='translate({}, {})'.format(x - l - 2 * WIDTH, y))(
+            line(x, y, x - l, y),
+            line(x - l, y, x - l + barb_l, y + barb_h),
+            line(x - l, y, x - l + barb_l, y - barb_h),
+            g(transform='translate({}, {})'.format(x - l - 0.5, y))(
                 g(transform='scale(1, -1)')(
                     text(0, 0, class_='right horizontal')(
                         node.get('netNameRef')
@@ -291,10 +298,10 @@ def draw_port(node):
         )
     elif rotation == 90:
         return g(class_='port')(
-            line(x, y, x, y + l, WIDTH),
-            line(x, y + l, x + barb_h, y + l - barb_l, WIDTH),
-            line(x, y + l, x - barb_h, y + l - barb_l, WIDTH),
-            g(transform='translate({}, {})'.format(x, y + l + 2 * WIDTH))(
+            line(x, y, x, y + l),
+            line(x, y + l, x + barb_h, y + l - barb_l),
+            line(x, y + l, x - barb_h, y + l - barb_l),
+            g(transform='translate({}, {})'.format(x, y + l + 0.5))(
                 g(transform='scale(1, -1)')(
                     text(0, 0, class_='vertical')(
                         node.get('netNameRef')
@@ -304,10 +311,10 @@ def draw_port(node):
         )
     elif rotation == 270:
         return g(class_='port')(
-            line(x, y, x, y - l, WIDTH),
-            line(x, y - l, x + barb_h, y - l + barb_l, WIDTH),
-            line(x, y - l, x - barb_h, y - l + barb_l, WIDTH),
-            g(transform='translate({}, {})'.format(x, y - l - 2 * WIDTH))(
+            line(x, y, x, y - l),
+            line(x, y - l, x + barb_h, y - l + barb_l),
+            line(x, y - l, x - barb_h, y - l + barb_l),
+            g(transform='translate({}, {})'.format(x, y - l - 0.5))(
                 g(transform='scale(1, -1)')(
                     text(0, 0, class_='vertical down')(
                         node.get('netNameRef')

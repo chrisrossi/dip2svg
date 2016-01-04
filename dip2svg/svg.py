@@ -20,20 +20,17 @@ def g(id=None, **kw):
     return tag('g', **kw)
 
 
-def line(x1, y1, x2, y2, width):
-    return tag('line', x1=x1, y1=y1, x2=x2, y2=y2, **{'stroke-width': width})
+def line(x1, y1, x2, y2):
+    return tag('line', x1=x1, y1=y1, x2=x2, y2=y2)
 
 
-def path(d, width):
-    return tag('path', d=d, **{'stroke-width': width})
+def path(d):
+    return tag('path', d=d)
 
 
-def circle(x, y, r, width):
-    return tag('circle', cx=x, cy=y, r=r, **{'stroke-width': width})
+def circle(x, y, r):
+    return tag('circle', cx=x, cy=y, r=r)
 
 
-def text(x, y, size=None, **kw):
-    if size:
-        kw['font-size'] = '{}px'.format(size)
-    kw['font-family'] = 'Sans-Serif'
-    return tag('text', x=x, y=y, fill='black', stroke='none', **kw)
+def text(x, y, **kw):
+    return tag('text', x=x, y=y, **kw)
