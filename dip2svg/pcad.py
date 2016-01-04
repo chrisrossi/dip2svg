@@ -1,5 +1,6 @@
 from functools import partial
 from itertools import chain, takewhile
+from kemmer import style
 from math import sqrt
 
 from .svg import circle, g, line, path, svg, text
@@ -28,6 +29,23 @@ def convert(doc, sheetnum=1):
     junctions = map(draw_junction, sheet.findall('junction'))
     ports = map(draw_port, sheet.findall('port'))
     return svg(width, height)(
+        style(
+            ('svg', {'background-color': 'white'}),
+            ('text', {'font-size': '{}px'.format(FONTSIZE)}),
+            ('text.center', {'text-anchor': 'middle'}),
+            ('text.right', {'text-anchor': 'end'}),
+            ('.component text', {'dominant-baseline': 'central'}),
+            ('text.component-value', {'dominant-baseline': 'text-before-edge'}),
+            ('text.refdes', {'dominant-baseline': 'no-change'}),
+            ('.port text', {'font-size': '{}px'.format(FONTSIZE * 0.92)}),
+            ('.port .horizontal', {'dominant-baseline': 'middle'}),
+            ('.port .vertical', {'text-anchor': 'middle'}),
+            ('.port .down', {'dominant-baseline': 'text-before-edge'}),
+            *(('text.{}'.format(class_name(styledef[0])), {
+                'font-size': '{}px'.format(
+                    styledef.find('font').get('fontHeight'))
+            }) for styledef in doc.find('library').findall('textStyleDef'))
+        ),
         g(transform='translate(0, {})'.format(height / 2 + 100))(
             g(transform='scale({0}, {0})'.format(SCALE))(
                 g('schematic', stroke='black', fill='none',
@@ -42,8 +60,9 @@ def convert(doc, sheetnum=1):
 def draw_symbol(library, node):
     refdes = node.get('refDesRef')
     x, y = node.find('pt')
+    transform = 'translate({}, {})'.format(x, y)
     symbol = library.symbols[node.get('symbolRef')]
-    container = g(refdes, transform='translate({}, {})'.format(x, y))(
+    container = g(refdes, transform=transform, class_='component')(
         *map(partial(draw_shape, library, node), shapes(symbol))
     )
     for draw in (draw_refdes, draw_value,):
@@ -93,7 +112,7 @@ def draw_pin(node):
     l = node.get('pinLength')
     rotation = node.get('rotation', 0)
 
-    container = g()
+    container = g(class_='pin')
     edge_style = node.get('outsideEdgeStyle', None)
     if edge_style == 'DOT':
         # Draw a circle and then a line
@@ -127,14 +146,11 @@ def draw_pin(node):
     if display and display.get('dispPinName'):
         tx = WIDTH * 2
         tx = -tx if rotation == 0 else tx
-        anchor = 'end' if rotation == 0 else 'start'
+        class_ = 'right' if rotation == 0 else None
         container(
             g(transform='translate({}, {})'.format(x1 + tx, y1))(
                 g(transform='scale(1, -1)')(
-                    text(0, 0, FONTSIZE, **{
-                        'text-anchor': anchor,
-                        'style': 'dominant-baseline: central;',
-                    })(node.get('defaultPinDes'))
+                    text(0, 0, class_=class_)(node.get('defaultPinDes'))
                 )
             )
         )
@@ -144,12 +160,12 @@ def draw_pin(node):
 
 def draw_text(library, node):
     x, y = node.find('pt')
-    anchor = 'middle' if node.get('justify', None) == 'Center' else 'start'
-    style = library.text_styles[node.get('textStyleRef')]
-    fontsize = style.find('font').get('fontHeight')
-    return g(transform='translate({}, {})'.format(x, y - fontsize / 2))(
+    class_ = class_name(node.get('textStyleRef'))
+    if node.get('justify', None) == 'Center':
+        class_ += ' center'
+    return g(transform='translate({}, {})'.format(x, y))(
         g(transform='scale(1, -1)')(
-            text(0, 0, fontsize, **{'text-anchor': anchor})(node[1])
+            text(0, 0, class_=class_)(node[1])
         )
     )
 
@@ -177,12 +193,14 @@ def draw_refdes(library, symbol, ref):
                    for pin in ref.findall('pin'))))
     if rotate and refdes_prefix(refdes) in ('R', 'D'):
         y = y / 2
-    style = library.text_styles[attr.get('textStyleRef')]
-    fontsize = style.find('font').get('fontHeight')
+    class_ = '{} {}'.format(
+        class_name(attr.get('textStyleRef')),
+        'refdes'
+    )
 
     drawing = g(transform='translate({}, {})'.format(x, y))(
         g(transform='scale(1, -1)')(
-            text(0, 0, fontsize)(refdes)
+            text(0, 0, class_=class_)(refdes)
         )
     )
 
@@ -214,14 +232,14 @@ def draw_value(library, symbol, ref):
                   for pin in ref.findall('pin')))
     if rotate and refdes_prefix(refdes) == 'R':
         y = y / 2
-    style = library.text_styles[attr.get('textStyleRef')]
-    fontsize = style.find('font').get('fontHeight')
+    class_ = '{} {}'.format(
+        class_name(attr.get('textStyleRef')),
+        'component-value',
+    )
 
     drawing = g(transform='translate({}, {})'.format(x, -y))(
         g(transform='scale(1, -1)')(
-            text(0, 0, fontsize, style='dominant-baseline: text-before-edge')(
-                value
-            )
+            text(0, 0, class_=class_)(value)
         )
     )
 
@@ -246,59 +264,52 @@ def draw_port(node):
     x, y = node.find('pt')
     rotation = node.get('rotation', 0)
     if rotation == 0:
-        return g()(
+        return g(class_='port')(
             line(x, y, x + l, y, WIDTH),
             line(x + l, y, x + l - barb_l, y + barb_h, WIDTH),
             line(x + l, y, x + l - barb_l, y - barb_h, WIDTH),
             g(transform='translate({}, {})'.format(x + l + 2 * WIDTH, y))(
                 g(transform='scale(1, -1)')(
-                    text(0, 0, FONTSIZE * 0.9,
-                         style='dominant-baseline: middle')(
+                    text(0, 0, class_='horizontal')(
                         node.get('netNameRef')
                     )
                 )
             )
         )
     elif rotation == 180:
-        return g()(
+        return g(class_='port')(
             line(x, y, x - l, y, WIDTH),
             line(x - l, y, x - l + barb_l, y + barb_h, WIDTH),
             line(x - l, y, x - l + barb_l, y - barb_h, WIDTH),
             g(transform='translate({}, {})'.format(x - l - 2 * WIDTH, y))(
                 g(transform='scale(1, -1)')(
-                    text(0, 0, FONTSIZE * 0.9,
-                         style='dominant-baseline: middle', **{
-                             'text-anchor': 'end',
-                         })(
+                    text(0, 0, class_='right horizontal')(
                         node.get('netNameRef')
                     )
                 )
             )
         )
     elif rotation == 90:
-        return g()(
+        return g(class_='port')(
             line(x, y, x, y + l, WIDTH),
             line(x, y + l, x + barb_h, y + l - barb_l, WIDTH),
             line(x, y + l, x - barb_h, y + l - barb_l, WIDTH),
             g(transform='translate({}, {})'.format(x, y + l + 2 * WIDTH))(
                 g(transform='scale(1, -1)')(
-                    text(0, 0, FONTSIZE * 0.9, **{'text-anchor': 'middle',})(
+                    text(0, 0, class_='vertical')(
                         node.get('netNameRef')
                     )
                 )
             )
         )
     elif rotation == 270:
-        return g()(
+        return g(class_='port')(
             line(x, y, x, y - l, WIDTH),
             line(x, y - l, x + barb_h, y - l + barb_l, WIDTH),
             line(x, y - l, x - barb_h, y - l + barb_l, WIDTH),
             g(transform='translate({}, {})'.format(x, y - l - 2 * WIDTH))(
                 g(transform='scale(1, -1)')(
-                    text(0, 0, FONTSIZE * 0.9,
-                         style='dominant-baseline: text-before-edge', **{
-                             'text-anchor': 'middle',
-                         })(
+                    text(0, 0, class_='vertical down')(
                         node.get('netNameRef')
                     )
                 )
@@ -310,11 +321,14 @@ def sheetnumber(sheet):
     return sheet.get('sheetNum')
 
 
+def class_name(name):
+    return name.lstrip('(').rstrip(')')
+
+
 class Library(object):
 
     def __init__(self, doc):
         lib = doc.find('library')
-        self.text_styles = {x[0]: x for x in lib.findall('textStyleDef')}
         self.symbols = {x[0]: x for x in lib.findall('symbolDef')}
 
         netlist = doc.find('netlist')

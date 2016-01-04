@@ -32,7 +32,8 @@ def circle(x, y, r, width):
     return tag('circle', cx=x, cy=y, r=r, **{'stroke-width': width})
 
 
-def text(x, y, size, **kw):
-    kw['font-size'] = '{}px'.format(size)
+def text(x, y, size=None, **kw):
+    if size:
+        kw['font-size'] = '{}px'.format(size)
     kw['font-family'] = 'Sans-Serif'
     return tag('text', x=x, y=y, fill='black', stroke='none', **kw)
