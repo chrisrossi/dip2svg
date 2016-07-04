@@ -4,7 +4,7 @@ from setuptools import find_packages
 VERSION = '0.1dev'
 
 requires = [
-    'kemmer',
+    'kemmering',
 ]
 tests_require = requires + []
 
